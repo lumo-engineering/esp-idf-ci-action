@@ -4,29 +4,42 @@ branding:
   color: red
   icon: wifi
 inputs:
-  path:
-    description: "Relative path under $GITHUB_WORKSPACE to place the repository"
-    default: ""
+  command:
+    description: "Command to run in ESP-IDF docker (default: idf.py all)"
+    type: string
+    default: "idf.py all"
     required: false
   esp_idf_version:
-    description: "Version of ESP-IDF docker image to use"
+    description: "Espressif IoT Development Framework version"
+    type: string
+    required: false
     default: "latest"
+  esp_target:
+    description: "ESP32 chip target"
+    type: string
     required: false
-  target:
-    description: "ESP32 variant to build for"
     default: "esp32"
+  path:
+    description: "Relative path under GITHUB_WORKSPACE to place the repository"
+    type: string
+    default: ""
     required: false
-  command:
-    description: "Command to run inside the docker container (default: builds the project)"
-    default: "idf.py build"
+  env-file:
+    description: "Path to env vars file, relative to GITHUB_WORKSPACE"
+    type: string
     required: false
+    default: "esp-idf-build.env"
 
 runs:
   using: "composite"
   steps:
     - run: |
-        export IDF_TARGET=$(echo "${{ inputs.target }}" | tr '[:upper:]' '[:lower:]' | tr -d '_-')
-        docker run -t -e IDF_TARGET="${IDF_TARGET}" -v "${GITHUB_WORKSPACE}:/app/${{ github.repository }}" \
-        -w "/app/${{ github.repository }}/${{ inputs.path }}" espressif/idf:${{ inputs.esp_idf_version }} \
-        /bin/bash -c 'git config --global --add safe.directory "*" && ${{ inputs.command }}'
+        export IDF_TARGET=$(echo "${{ inputs.esp_target }}" | tr '[:upper:]' '[:lower:]' | tr -d '_-')
+        touch "esp-idf-build.env"
+        docker run -t -e IDF_TARGET="${IDF_TARGET}" --env-file "esp-idf-build.env" \
+          --env-file "${GITHUB_WORKSPACE}/${{ inputs.env-file }}" \
+          --workdir "/app/${{ github.repository }}/${{ inputs.path }}" \
+          --volume "${GITHUB_WORKSPACE}:/app/${{ github.repository }}" \
+          espressif/idf:${{ inputs.esp_idf_version }} \
+          /bin/bash -c 'git config --global --add safe.directory "*" && ${{ inputs.command }}'
       shell: bash
